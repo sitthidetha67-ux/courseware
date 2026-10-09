@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AR Courseware - วิทยาการคำนวณ ม.5</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts: Sarabun -->
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- Model Viewer for AR -->
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Sarabun', 'sans-serif'] },
+                    colors: {
+                        primary: '#4f46e5', // Indigo 600
+                        primaryHover: '#4338ca', // Indigo 700
+                        secondary: '#0f172a', // Slate 900
+                        accent: '#10b981', // Emerald 500
+                        lightbg: '#f1f5f9' // Slate 100
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.4s ease-out forwards',
+                        'slide-up': 'slideUp 0.5s ease-out forwards',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        },
+                        slideUp: {
+                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { @apply font-sans bg-lightbg text-slate-800 antialiased selection:bg-primary selection:text-white; }
+        
+        /* Modern UI Components */
+        .glass-nav { @apply bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-40; }
+        .card { @apply bg-white rounded-2xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 p-6 mb-6 transition-all duration-300; }
+        .card-hover:hover { @apply shadow-[0_8px_30px_-4px_rgba(0,0,0,0.1)] -translate-y-1; }
+        
+        /* Buttons */
+        .btn { @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed; }
+        .btn-primary { @apply bg-gradient-to-r from-primary to-blue-600 text-white hover:from-primaryHover hover:to-blue-700 shadow-md hover:shadow-lg shadow-blue-500/30; }
+        .btn-secondary { @apply bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:text-primary hover:border-primary/30; }
+        .btn-success { @apply bg-gradient-to-r from-accent to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700 shadow-md hover:shadow-lg shadow-emerald-500/30; }
+        .btn-danger { @apply bg-gradient-to-r from-red-500 to-rose-600 text-white hover:from-red-600 hover:to-rose-700 shadow-md; }
+        
+        /* Inputs */
+        .input-field { @apply w-full p-3 bg-slate-50 border border-slate-200 text-slate-700 rounded-xl focus:ring-2 focus:ring-primary/50 focus:border-primary focus:bg-white transition-all outline-none; }
+        .file-input::-file-selector-button { @apply btn btn-secondary mr-4 cursor-pointer; }
+        
+        /* Utilities */
+        .hidden-el { display: none !important; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Custom Toast Container -->
+    <div id="toastContainer" class="fixed top-20 right-4 z-50 flex flex-col gap-3 pointer-events-none"></div>
+
+    <!-- Custom Modal Container -->
+    <div id="customModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] hidden-el flex items-center justify-center opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 transform scale-95 transition-transform duration-300 mx-4" id="customModalContent">
+            <h3 id="customModalTitle" class="text-xl font-bold text-slate-800 mb-2"></h3>
+            <div id="customModalBody" class="text-slate-600 mb-6 text-sm leading-relaxed"></div>
+            <div class="flex justify-end gap-3" id="customModalActions">
+                <!-- Actions injected via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuration Alert -->
+    <div id="configAlert" class="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 m-4 rounded-r-lg hidden-el animate-slide-up shadow-sm">
+        <div class="flex items-center gap-2">
+            <i class="fa-solid fa-triangle-exclamation text-lg"></i>
+            <p class="font-bold">ระบบยังไม่พร้อมใช้งาน</p>
+        </div>
+        <p class="text-sm mt-1 ml-6">กรุณาตั้งค่า <code>SUPABASE_URL</code> และ <code>SUPABASE_KEY</code> ในโค้ดบรรทัดที่กำหนดก่อนเริ่มใช้งาน</p>
+    </div>
+
+    <!-- Navbar -->
+    <nav class="glass-nav py-3 px-6 shadow-sm">
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="bg-gradient-to-br from-primary to-blue-500 text-white w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30">
+                    <i class="fa-solid fa-vr-cardboard text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-extrabold text-secondary tracking-tight">AR Courseware</h1>
+                    <p class="text-xs text-slate-500 font-medium">วิทยาการคำนวณ ม.5</p>
+                </div>
+            </div>
+            <div id="navMenu" class="hidden-el flex items-center gap-4">
+                <span id="navName" class="text-sm font-semibold text-slate-700 hidden sm:inline-block"></span>
+                <button onclick="logout()" class="btn btn-secondary !py-2 !px-4 !text-red-500 hover:!bg-red-50 hover:!border-red-200">
+                    <i class="fa-solid fa-right-from-bracket"></i> <span class="hidden sm:inline">ออกจากระบบ</span>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="flex-grow container mx-auto p-4 md:p-6 max-w-6xl" id="appContainer">
+        
+        <!-- === Auth Section === -->
+        <div id="authSection" class="w-full max-w-md mx-auto mt-10 md:mt-20 animate-fade-in">
+            <div class="card !p-8 relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-primary to-accent"></div>
+                
+                <div class="text-center mb-8 mt-2">
+                    <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-50 text-primary mb-4">
+                        <i class="fa-solid fa-user-graduate text-2xl"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-secondary">เข้าสู่ระบบห้องเรียน</h2>
+                    <p class="text-sm text-slate-500 mt-2">นักเรียนใช้ อีเมล: <span class="font-semibold text-primary">รหัส5หลัก@nws.ac.th</span></p>
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">อีเมลผู้ใช้งาน</label>
+                        <div class="relative">
+                            <i class="fa-solid fa-envelope absolute left-4 top-3.5 text-slate-400"></i>
+                            <input type="email" id="email" placeholder="12345@nws.ac.th" class="input-field pl-10">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">รหัสผ่าน</label>
+                        <div class="relative">
+                            <i class="fa-solid fa-lock absolute left-4 top-3.5 text-slate-400"></i>
+                            <input type="password" id="password" placeholder="••••••••" class="input-field pl-10">
+                        </div>
+                    </div>
+                    
+                    <button onclick="handleAuth('login')" class="btn btn-primary w-full mt-4 !py-3">
+                        <i class="fa-solid fa-arrow-right-to-bracket"></i> เข้าสู่ระบบ
+                    </button>
+                    <div class="relative flex items-center py-2">
+                        <div class="flex-grow border-t border-slate-200"></div>
+                        <span class="flex-shrink-0 mx-4 text-slate-400 text-xs">หรือ</span>
+                        <div class="flex-grow border-t border-slate-200"></div>
+                    </div>
+                    <button onclick="handleAuth('register')" class="btn btn-secondary w-full">
+                        ลงทะเบียนใหม่
+                    </button>
+                    <p id="authMsg" class="text-center text-sm font-medium h-4 mt-2 transition-colors"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- === Dashboard (Student) === -->
+        <div id="dashboardSection" class="hidden-el animate-fade-in">
+            <!-- Profile Banner -->
+            <div class="rounded-3xl bg-gradient-to-r from-secondary to-primary p-6 md:p-8 text-white shadow-xl mb-8 flex flex-col md:flex-row items-center md:items-start justify-between gap-6 relative overflow-hidden">
+                <!-- Decorative circles -->
+                <div class="absolute -top-24 -right-24 w-64 h-64 bg-white opacity-5 rounded-full blur-2xl"></div>
+                <div class="absolute bottom-0 right-1/4 w-32 h-32 bg-primary opacity-20 rounded-full blur-xl"></div>
+                
+                <div class="flex-grow z-10 text-center md:text-left">
+                    <p class="text-blue-200 font-medium mb-1">ยินดีต้อนรับกลับมา,</p>
+                    <h2 class="text-3xl md:text-4xl font-extrabold mb-4"><span id="studentName"></span></h2>
+                    <div class="inline-flex items-center gap-2 bg-white/10 backdrop-blur px-4 py-2 rounded-full border border-white/20">
+                        <i class="fa-solid fa-chart-line text-accent"></i>
+                        <span class="text-sm font-medium">ความก้าวหน้า: <span id="progressText" class="font-bold text-accent">0/5 หน่วย</span></span>
+                    </div>
+                </div>
+                
+                <div class="relative group cursor-pointer z-10 flex-shrink-0">
+                    <img id="profileImg" src="https://ui-avatars.com/api/?name=User&background=eff6ff&color=4f46e5" alt="Profile" class="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-white shadow-lg object-cover bg-white">
+                    <div class="absolute inset-0 bg-secondary/60 backdrop-blur-sm rounded-full flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        <i class="fa-solid fa-camera text-white mb-1"></i>
+                        <label for="photoUpload" class="text-white text-xs font-medium cursor-pointer">เปลี่ยนรูป</label>
+                        <input type="file" id="photoUpload" class="hidden" accept="image/jpeg, image/png" onchange="uploadProfilePhoto(event)">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                <!-- Left Col: Learning Path & Materials -->
+                <div class="lg:col-span-2 space-y-6">
+                    <div class="card !p-0 overflow-hidden">
+                        <div class="bg-slate-50 border-b border-slate-100 p-5 flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center"><i class="fa-solid fa-map-location-dot"></i></div>
+                            <h3 class="font-bold text-lg text-secondary">เส้นทางการเรียนรู้</h3>
+                        </div>
+                        <ul id="learningPath" class="p-2">
+                            <!-- Path dynamically built -->
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Right Col: Submission & Materials -->
+                <div class="space-y-6">
+                    <div class="card card-hover">
+                        <div class="flex items-center gap-3 mb-4 border-b border-slate-100 pb-3">
+                            <div class="w-8 h-8 rounded-lg bg-accent/10 text-accent flex items-center justify-center"><i class="fa-solid fa-laptop-code"></i></div>
+                            <h3 class="font-bold text-lg text-secondary">งานปฏิบัติ (หน่วยที่ 4)</h3>
+                        </div>
+                        <div id="submissionStatus" class="mb-4"></div>
+                        <div id="submissionForm" class="hidden-el bg-slate-50 p-4 rounded-xl border border-slate-100">
+                            <div class="mb-3">
+                                <label class="block text-xs font-bold text-slate-700 mb-1"><i class="fa-solid fa-link mr-1"></i> ส่งลิงก์ผลงาน WebAR</label>
+                                <input type="url" id="workUrl" placeholder="https://..." class="input-field !text-sm !p-2">
+                            </div>
+                            <div class="mb-3">
+                                <label class="block text-xs font-bold text-slate-700 mb-1"><i class="fa-solid fa-paperclip mr-1"></i> แนบไฟล์รูป/วิดีโอ (≤20MB)</label>
+                                <input type="file" id="workFile" accept=".png,.jpg,.pdf,.mp4" class="input-field file-input !text-sm !p-2 bg-white">
+                            </div>
+                            <div class="mb-4">
+                                <textarea id="workNote" placeholder="บันทึกเพิ่มเติมถึงผู้สอน (ถ้ามี)" class="input-field !text-sm !p-2 min-h-[80px]"></textarea>
+                            </div>
+                            <button onclick="submitWork()" class="btn btn-success w-full"><i class="fa-solid fa-paper-plane"></i> ส่งงาน</button>
+                        </div>
+                    </div>
+
+                    <div class="card card-hover">
+                        <div class="flex items-center gap-3 mb-4 border-b border-slate-100 pb-3">
+                            <div class="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center"><i class="fa-solid fa-folder-open"></i></div>
+                            <h3 class="font-bold text-lg text-secondary">สื่อเพิ่มเติมจากผู้สอน</h3>
+                        </div>
+                        <ul id="materialsList" class="space-y-3 text-sm">
+                            <!-- Materials -->
+                        </ul>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- === Learning Unit Content Section === -->
+        <div id="unitSection" class="hidden-el animate-fade-in max-w-4xl mx-auto">
+            <button onclick="showDashboard()" class="btn btn-secondary mb-6 rounded-full"><i class="fa-solid fa-arrow-left"></i> กลับหน้าหลัก</button>
+            <div class="card !p-8 md:!p-10" id="unitContentBox">
+                <!-- Content injected via JS -->
+            </div>
+        </div>
+
+        <!-- === Exam Section === -->
+        <div id="examSection" class="hidden-el animate-fade-in max-w-3xl mx-auto">
+            <div class="card !p-0 overflow-hidden shadow-lg border-primary/20">
+                <div class="bg-gradient-to-r from-primary to-blue-600 text-white p-6">
+                    <h2 class="text-2xl font-bold flex items-center gap-3" id="examTitle">
+                        <i class="fa-solid fa-file-signature"></i> แบบทดสอบ
+                    </h2>
+                    <p class="text-blue-100 text-sm mt-2"><i class="fa-solid fa-circle-info"></i> กรุณาเลือกคำตอบที่ถูกต้องที่สุดเพียงข้อเดียว และตอบให้ครบทุกข้อ</p>
+                </div>
+                
+                <div id="examContainer" class="p-6 md:p-8 space-y-8 bg-slate-50">
+                    <!-- Questions injected here -->
+                </div>
+                
+                <div class="p-6 bg-white border-t border-slate-100 flex justify-end">
+                    <button onclick="submitExam()" class="btn btn-primary !px-8"><i class="fa-solid fa-check-double"></i> ส่งคำตอบทั้งหมด</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- === Exam Results === -->
+        <div id="resultSection" class="hidden-el animate-fade-in max-w-4xl mx-auto">
+            <button onclick="showDashboard()" class="btn btn-secondary mb-6 rounded-full"><i class="fa-solid fa-arrow-left"></i> กลับหน้าหลัก</button>
+            
+            <div class="card text-center !p-8 md:!p-12 relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-8 opacity-5"><i class="fa-solid fa-trophy text-9xl"></i></div>
+                
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-accent/10 text-accent mb-4">
+                    <i class="fa-solid fa-award text-3xl"></i>
+                </div>
+                <h2 class="text-3xl font-extrabold text-secondary mb-8">สรุปผลการเรียนรู้</h2>
+                
+                <div class="flex flex-wrap justify-center gap-6 md:gap-12 mb-8">
+                    <div class="bg-slate-50 p-6 rounded-2xl border border-slate-100 w-40 transform transition hover:scale-105">
+                        <p class="text-slate-500 font-medium mb-2">ก่อนเรียน</p>
+                        <p class="text-4xl font-extrabold text-slate-700" id="resPre">-</p>
+                        <p class="text-xs text-slate-400 mt-1">เต็ม 10</p>
+                    </div>
+                    <div class="hidden md:flex items-center text-slate-300">
+                        <i class="fa-solid fa-arrow-right-long text-3xl"></i>
+                    </div>
+                    <div class="bg-emerald-50 p-6 rounded-2xl border border-emerald-100 w-40 transform transition hover:scale-105 shadow-sm shadow-emerald-100">
+                        <p class="text-emerald-700 font-medium mb-2">หลังเรียน</p>
+                        <p class="text-4xl font-extrabold text-accent" id="resPost">-</p>
+                        <p class="text-xs text-emerald-500 mt-1">เต็ม 10</p>
+                    </div>
+                </div>
+                
+                <div class="bg-blue-50 text-blue-800 p-4 rounded-xl inline-block border border-blue-100 mb-8">
+                    <p class="text-lg font-medium">ค่าพัฒนาการ Normalized Gain: <span id="resGain" class="font-bold text-xl ml-2"></span></p>
+                    <p class="text-xs text-blue-600/70 mt-2">*อ้างอิงเกณฑ์การประเมินของ Hake (1998)</p>
+                </div>
+                
+                <div id="examReview" class="mt-8 text-left space-y-6 border-t border-slate-100 pt-8 relative z-10">
+                    <!-- Review injected here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- === Teacher Dashboard === -->
+        <div id="teacherDashboard" class="hidden-el animate-fade-in">
+             <div class="card bg-gradient-to-r from-secondary to-slate-800 text-white flex flex-col sm:flex-row justify-between items-center gap-4 !border-none shadow-lg">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center">
+                        <i class="fa-solid fa-chalkboard-user text-2xl"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-2xl font-bold">ระบบจัดการคอร์สแวร์</h2>
+                        <p class="text-slate-300 text-sm">ส่วนสำหรับผู้สอน</p>
+                    </div>
+                </div>
+                <button onclick="exportCSV()" class="btn bg-white/20 hover:bg-white/30 border border-white/30 backdrop-blur">
+                    <i class="fa-solid fa-file-csv"></i> ดาวน์โหลด CSV
+                </button>
+            </div>
+            
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                
+                <div class="xl:col-span-2 card !p-0 overflow-hidden flex flex-col h-[600px]">
+                    <div class="p-5 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
+                        <i class="fa-solid fa-users text-primary"></i>
+                        <h3 class="font-bold text-lg text-secondary">สรุปผลผู้เรียนทั้งหมด</h3>
+                    </div>
+                    <div class="overflow-x-auto flex-grow bg-white">
+                        <table class="w-full text-sm text-left whitespace-nowrap">
+                            <thead class="bg-slate-100 text-slate-600 uppercase text-xs font-bold sticky top-0">
+                                <tr>
+                                    <th class="p-4 border-b">รหัส</th>
+                                    <th class="p-4 border-b">ชื่อ-สกุล</th>
+                                    <th class="p-4 border-b text-center">ความก้าวหน้า</th>
+                                    <th class="p-4 border-b text-center">ก่อนเรียน</th>
+                                    <th class="p-4 border-b text-center">หลังเรียน</th>
+                                    <th class="p-4 border-b text-center">จัดการ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="teacherTableBody" class="divide-y divide-slate-100">
+                                <!-- Data injected -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                 <div class="space-y-6">
+                    <div class="card">
+                        <div class="flex items-center gap-3 mb-5 border-b border-slate-100 pb-3">
+                            <i class="fa-solid fa-cloud-arrow-up text-accent text-lg"></i>
+                            <h3 class="font-bold text-lg text-secondary">เพิ่มสื่อการสอนใหม่</h3>
+                        </div>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">ชื่อสื่อ</label>
+                                <input type="text" id="matTitle" placeholder="เช่น สไลด์บทที่ 1" class="input-field !p-2 !text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">ประเภท</label>
+                                <select id="matKind" class="input-field !p-2 !text-sm">
+                                    <option value="link">🌐 ลิงก์เว็บไซต์</option>
+                                    <option value="video">🎥 วิดีโอ (YouTube/ลิงก์)</option>
+                                    <option value="file">📄 อัปโหลดไฟล์ (≤50MB)</option>
+                                </select>
+                            </div>
+                            <div id="matUrlContainer">
+                                <label class="block text-xs font-bold text-slate-700 mb-1">URL</label>
+                                <input type="text" id="matUrl" placeholder="https://..." class="input-field !p-2 !text-sm">
+                            </div>
+                            <div id="matFileContainer" class="hidden-el">
+                                <label class="block text-xs font-bold text-slate-700 mb-1">ไฟล์</label>
+                                <input type="file" id="matFile" class="input-field file-input !p-2 !text-sm bg-white w-full">
+                            </div>
+                            <button onclick="uploadMaterial()" class="btn btn-primary w-full"><i class="fa-solid fa-plus"></i> เพิ่มเข้าสู่ระบบ</button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="flex items-center gap-3 mb-4 border-b border-slate-100 pb-3">
+                            <i class="fa-solid fa-folder-tree text-amber-500"></i>
+                            <h3 class="font-bold text-lg text-secondary">คลังสื่อที่แชร์แล้ว</h3>
+                        </div>
+                        <ul id="teacherMaterialsList" class="space-y-2">
+                            <!-- Materials -->
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // === Custom UI Helpers (Replacing alerts/prompts) ===
+        function showToast(msg, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            
+            let colorClass = 'bg-blue-600', icon = 'fa-info-circle';
+            if (type === 'error') { colorClass = 'bg-rose-600'; icon = 'fa-circle-xmark'; }
+            if (type === 'success') { colorClass = 'bg-emerald-600'; icon = 'fa-circle-check'; }
+
+            toast.className = `flex items-center gap-3 px-4 py-3 rounded-xl text-white shadow-lg shadow-black/10 transform transition-all duration-300 translate-x-full opacity-0 ${colorClass}`;
+            toast.innerHTML = `<i class="fa-solid ${icon} text-lg"></i> <span class="font-medium text-sm">${msg}</span>`;
+            
+            container.appendChild(toast);
+            
+            // Animate in
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-x-full', 'opacity-0');
+            });
+
+            // Animate out and remove
+            setTimeout(() => {
+                toast.classList.add('translate-x-full', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // Custom Modal Logic
+        const modalEl = document.getElementById('customModal');
+        const modalContent = document.getElementById('customModalContent');
+        const modalTitle = document.getElementById('customModalTitle');
+        const modalBody = document.getElementById('customModalBody');
+        const modalActions = document.getElementById('customModalActions');
+
+        function openModal() {
+            modalEl.classList.remove('hidden-el');
+            // small delay to trigger CSS transition
+            requestAnimationFrame(() => {
+                modalEl.classList.remove('opacity-0');
+                modalContent.classList.remove('scale-95');
+                modalContent.classList.add('scale-100');
+            });
+        }
+
+        function closeModal() {
+            modalEl.classList.add('opacity-0');
+            modalContent.classList.remove('scale-100');
+            modalContent.classList.add('scale-95');
+            setTimeout(() => modalEl.classList.add('hidden-el'), 300);
+        }
+
+        function customAlert(title, message) {
+            modalTitle.innerHTML = `<i class="fa-solid fa-circle-exclamation text-amber-500 mr-2"></i>${title}`;
+            modalBody.innerHTML = message;
+            modalActions.innerHTML = `<button class="btn btn-secondary" onclick="closeModal()">รับทราบ</button>`;
+            openModal();
+        }
+
+        function customConfirm(title, message, onConfirm) {
+            modalTitle.innerHTML = `<i class="fa-solid fa-circle-question text-primary mr-2"></i>${title}`;
+            modalBody.innerHTML = message;
+            modalActions.innerHTML = `
+                <button class="btn btn-secondary" onclick="closeModal()">ยกเลิก</button>
+                <button class="btn btn-danger" id="confirmBtn"><i class="fa-solid fa-check"></i> ยืนยัน</button>
+            `;
+            document.getElementById('confirmBtn').onclick = () => {
+                closeModal();
+                if(onConfirm) onConfirm();
+            };
+            openModal();
+        }
+
+        function customPrompt(title, message, defaultVal, type, onSave) {
+            modalTitle.innerHTML = `<i class="fa-solid fa-pen-to-square text-primary mr-2"></i>${title}`;
+            modalBody.innerHTML = `
+                <p class="mb-3">${message}</p>
+                ${type === 'textarea' 
+                    ? `<textarea id="promptInput" class="input-field min-h-[80px]">${defaultVal||''}</textarea>`
+                    : `<input type="${type||'text'}" id="promptInput" class="input-field" value="${defaultVal||''}">`
+                }
+            `;
+            modalActions.innerHTML = `
+                <button class="btn btn-secondary" onclick="closeModal()">ยกเลิก</button>
+                <button class="btn btn-primary" id="saveBtn"><i class="fa-solid fa-floppy-disk"></i> บันทึก</button>
+            `;
+            document.getElementById('saveBtn').onclick = () => {
+                const val = document.getElementById('promptInput').value;
+                closeModal();
+                if(onSave) onSave(val);
+            };
+            openModal();
+        }
+
+
+        // === ตั้งค่า SUPABASE ===
+        const SUPABASE_URL = 'ใส่_URL_ของคุณ'; 
+        const SUPABASE_ANON_KEY = 'ใส่_ANON_KEY_ของคุณ';
+
+        if(SUPABASE_URL.includes('ใส่_') || SUPABASE_ANON_KEY.includes('ใส่_')) {
+            document.getElementById('configAlert').classList.remove('hidden-el');
+        }
+
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        let currentUser = null;
+        let userData = null;
+        let isTeacherUser = false;
+        let userProgress = [];
+        let assignedExamSet = 'A';
+
+        const unitsData = [
+            {
+                id: 1, title: "พื้นฐานความจริงเสริม (AR)",
+                obj: "อธิบายองค์ประกอบของ AR ตามแนวคิดของ Azuma (1997) และแยกแยะความแตกต่างระหว่าง AR, VR, MR ตาม Milgram & Kishino (1994) ได้",
+                content: `<div class="prose max-w-none text-slate-700">
+                <h3 class="text-xl font-bold text-secondary mb-3"><i class="fa-solid fa-book-open-reader text-primary mr-2"></i>1. นิยามของ AR (Augmented Reality)</h3>
+                <p class="mb-4 leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-100">ตามแนวคิดของ <strong>Azuma (1997)</strong> AR ต้องประกอบด้วย 3 ลักษณะสำคัญคือ:<br>
+                1) ผสมผสานโลกจริงและโลกเสมือนเข้าด้วยกัน (Combines real and virtual)<br>
+                2) ตอบสนองแบบเรียลไทม์ (Interactive in real time)<br>
+                3) ลงทะเบียนหรืออิงตำแหน่งในรูปแบบ 3 มิติ (Registered in 3-D)</p>
+                <h3 class="text-xl font-bold text-secondary mb-3 mt-6"><i class="fa-solid fa-vr-cardboard text-primary mr-2"></i>2. ความแตกต่างระหว่าง AR, VR, MR</h3>
+                <p class="mb-4 leading-relaxed"><strong>Milgram & Kishino (1994)</strong> เสนอแนวคิด <i>Reality-Virtuality Continuum</i> โดยฝั่งซ้ายสุดคือโลกจริง (Real Environment) ฝั่งขวาสุดคือสภาพแวดล้อมเสมือน (Virtual Environment หรือ VR) พื้นที่ตรงกลางเรียกว่า <strong>Mixed Reality (MR)</strong> ซึ่ง AR คือส่วนที่ใกล้โลกจริงมากกว่า โดยนำของเสมือนมาซ้อนทับโลกจริง</p>
+                </div>`,
+                q: { 
+                    text: "ข้อใดคือองค์ประกอบสำคัญของ AR ตามแนวคิดของ Azuma (1997)?", 
+                    options: ["A. ต้องใช้แว่นตา 3 มิติเสมอ", "B. ตัดขาดผู้ใช้จากโลกจริงอย่างสมบูรณ์", "C. ผสมโลกจริงกับเสมือน โต้ตอบเรียลไทม์ และอิงตำแหน่ง 3 มิติ", "D. แสดงผลผ่านเว็บไซต์เท่านั้น"], 
+                    ans: 2, 
+                    exp: "Azuma ระบุ 3 องค์ประกอบ: ผสมโลกจริง-เสมือน, โต้ตอบเรียลไทม์, และลงตำแหน่ง 3 มิติ" 
+                }
+            },
+            {
+                id: 2, title: "ชนิดและเทคโนโลยี AR",
+                obj: "จำแนกชนิดของเทคโนโลยี AR และอธิบายข้อจำกัดในการใช้งานได้",
+                content: `<div class="prose max-w-none text-slate-700">
+                <h3 class="text-xl font-bold text-secondary mb-3">ชนิดของ AR</h3>
+                <ul class="space-y-2 mb-6 list-disc pl-5">
+                    <li><strong class="text-primary">Marker-based:</strong> ใช้ภาพสัญลักษณ์ในการรู้จำเพื่อแสดงผล 3D</li>
+                    <li><strong class="text-primary">Markerless:</strong> ไม่ใช้สัญลักษณ์ แต่อาศัยการตรวจจับพื้นผิว (Plane detection)</li>
+                    <li><strong class="text-primary">Location-based:</strong> อิงพิกัด GPS และเซนเซอร์ทิศทาง</li>
+                    <li><strong class="text-primary">Projection-based:</strong> ฉายแสงลงบนวัตถุจริงโดยตรง</li>
+                </ul>
+                <div class="bg-amber-50 border-l-4 border-amber-400 p-4 rounded-r-lg">
+                    <p class="font-bold text-amber-800 mb-1"><i class="fa-solid fa-triangle-exclamation mr-1"></i> ข้อจำกัดของ WebAR</p>
+                    <p class="text-sm text-amber-700">WebAR ช่วยให้เข้าถึงง่ายผ่านเบราว์เซอร์ไม่ต้องโหลดแอป แต่มีข้อจำกัด เช่น พึ่งพาแสงสว่างสภาพแวดล้อม ความเสถียรของอินเทอร์เน็ต และข้อกังวลด้านความเป็นส่วนตัว (Privacy) ของการขออนุญาตใช้กล้อง</p>
+                </div>
+                </div>`,
+                q: { 
+                    text: "เทคโนโลยี AR แบบใดที่ต้องอาศัยพิกัด GPS เพื่อแสดงผลวัตถุเสมือน?", 
+                    options: ["A. Marker-based", "B. Location-based", "C. Projection-based", "D. Markerless"], 
+                    ans: 1, 
+                    exp: "Location-based AR อาศัยข้อมูลตำแหน่งจาก GPS และเข็มทิศในอุปกรณ์" 
+                }
+            },
+            {
+                id: 3, title: "การออกแบบสื่อ AR เพื่อการเรียนรู้",
+                obj: "ประยุกต์ใช้หลักการออกแบบมัลติมีเดียเพื่อลดภาระทางปัญญาในการสร้างสื่อ AR ได้",
+                content: `<div class="prose max-w-none text-slate-700">
+                <p class="mb-4 leading-relaxed"><strong>หลักการออกแบบ:</strong> ต้องเริ่มจากการเขียนวัตถุประสงค์การเรียนรู้ก่อนเลือกเทคโนโลยีเสมอ การแสดงผล AR ต้องระวังเรื่อง <i class="text-rose-600 font-medium">ภาระทางปัญญา (Cognitive Load)</i> หากข้อมูลล้นเกิน ผู้เรียนจะรับไม่ไหว</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 my-6">
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        <p class="font-bold text-primary mb-2"><i class="fa-solid fa-scissors"></i> Coherence Principle</p>
+                        <p class="text-sm">ตัดสิ่งที่ไม่จำเป็นออก ช่วยลด Cognitive Load ได้โดยตรง (Mayer)</p>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        <p class="font-bold text-primary mb-2"><i class="fa-solid fa-object-group"></i> Spatial Contiguity</p>
+                        <p class="text-sm">จัดวางข้อความอธิบายให้ใกล้ชิดกับภาพหรือชิ้นส่วนโมเดลที่สัมพันธ์กัน</p>
+                    </div>
+                </div>
+                <p class="text-sm bg-blue-50 p-3 rounded-lg text-blue-800"><i class="fa-solid fa-lightbulb text-amber-500 mr-1"></i> <strong>ข้อเสนอแนะ:</strong> ต้องมีทางเลือกสำรอง (Fallback) เสมอสำหรับผู้เรียนที่อุปกรณ์มือถือไม่รองรับเทคโนโลยี AR (เช่น ให้ดูโมเดล 3D แบบปกติแทน)</p>
+                </div>`,
+                q: { 
+                    text: "การลด 'ภาระทางปัญญา (Cognitive Load)' ในการออกแบบ AR สอดคล้องกับแนวทางใดมากที่สุด?", 
+                    options: ["A. ใส่ภาพเคลื่อนไหวและเสียงให้มากที่สุด", "B. แสดงโมเดล 3 มิติพร้อมข้อความจำนวนมากในหน้าจอเดียว", "C. ตัดองค์ประกอบที่ไม่จำเป็นออกและนำเสนอเฉพาะข้อมูลที่เกี่ยวข้อง", "D. บังคับให้ใช้แว่นตาราคาแพง"], 
+                    ans: 2, 
+                    exp: "การตัดสิ่งที่ไม่จำเป็นออก (Coherence Principle) ช่วยลด Cognitive Load ได้โดยตรง" 
+                }
+            },
+            {
+                id: 4, title: "ปฏิบัติ: สร้างสื่อ WebAR",
+                obj: "สร้างและทดสอบการแสดงผลโมเดล 3 มิติบนเบราว์เซอร์ด้วย <model-viewer> ได้",
+                content: `<div class="prose max-w-none text-slate-700">
+                <p class="mb-4 leading-relaxed">การใช้แท็ก <code>&lt;model-viewer&gt;</code> (เวอร์ชัน 3.4.0) เป็นวิธีที่ง่ายและเป็นมาตรฐานที่สุดในปัจจุบันสำหรับการทำ WebAR บนเว็บไซต์</p>
+                <ol class="list-decimal pl-5 space-y-2 mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                    <li>เตรียมไฟล์ 3D นามสกุล <strong class="text-primary">.glb</strong> (GLTF Binary)</li>
+                    <li>อัปโหลดไฟล์ขึ้นระบบ Storage หรือ Hosting</li>
+                    <li>เขียนโค้ด HTML เรียกใช้งานดังนี้:
+                        <pre class="bg-secondary text-slate-300 p-3 rounded-lg text-sm overflow-x-auto mt-2"><code>&lt;model-viewer src="model.glb" ar ar-modes="webxr scene-viewer" camera-controls&gt;&lt;/model-viewer&gt;</code></pre>
+                    </li>
+                </ol>
+                <div class="border border-slate-200 rounded-2xl p-4 bg-white text-center mb-6 shadow-sm">
+                    <p class="text-sm font-bold text-slate-500 mb-3"><i class="fa-solid fa-cube mr-1"></i> ตัวอย่าง (ทดสอบหมุนดูได้, บนมือถือจะปุ่ม "ดูในพื้นที่จริง")</p>
+                    <div class="bg-slate-100 rounded-xl overflow-hidden">
+                        <model-viewer src="https://modelviewer.dev/shared-assets/models/Astronaut.glb" ar camera-controls auto-rotate class="w-full h-80 mx-auto outline-none"></model-viewer>
+                    </div>
+                </div>
+                <div class="bg-indigo-50 text-indigo-800 p-4 rounded-xl flex items-start gap-3">
+                    <i class="fa-solid fa-circle-info mt-1"></i>
+                    <p class="text-sm font-medium">ส่วนนี้ไม่มีคำถามแทรก ให้นักเรียนลงมือปฏิบัติสร้าง WebAR ของตนเอง แล้วนำลิงก์หรือหน้าจอผลลัพธ์ไป <strong class="text-indigo-900 underline">ส่งงานในหน้า Dashboard</strong> หลังเรียนจบหน่วยนี้</p>
+                </div>
+                </div>`,
+                q: null 
+            },
+            {
+                id: 5, title: "การทดสอบและประเมินสื่อ AR",
+                obj: "อธิบายวิธีการประเมินคุณภาพและประสิทธิผลของสื่อตามหลักวิชาการได้",
+                content: `<div class="prose max-w-none text-slate-700">
+                <h3 class="text-xl font-bold text-secondary mb-4">การประเมินคุณภาพสื่อการศึกษา</h3>
+                <ul class="space-y-4 mb-6">
+                    <li class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        <strong class="text-primary block mb-1">1. ประเมินโดยผู้เชี่ยวชาญ (ด้านเนื้อหาและสื่อ)</strong>
+                        <p class="text-sm">นิยมใช้ดัชนีความสอดคล้อง <strong>IOC</strong> (Rovinelli & Hambleton, 1977) โดยเกณฑ์ที่ยอมรับได้คือค่าเฉลี่ยต้อง &ge; 0.50</p>
+                    </li>
+                    <li class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        <strong class="text-primary block mb-1">2. การหาประสิทธิภาพ (E1/E2)</strong>
+                        <p class="text-sm">ทดสอบอัตราส่วนระหว่าง กระบวนการ (E1) / ผลลัพธ์ (E2) เช่น ตั้งเกณฑ์มาตรฐานไว้ที่ 80/80</p>
+                    </li>
+                    <li class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        <strong class="text-primary block mb-1">3. การหาประสิทธิผล (Effectiveness)</strong>
+                        <p class="text-sm">ประเมินพัฒนาการของผู้เรียนด้วยค่า <strong>Normalized Gain</strong> ของ Hake (1998) <br>
+                        สูตร: <code class="bg-slate-200 px-1 rounded text-secondary font-mono">(คะแนนหลังเรียน - คะแนนก่อนเรียน) / (คะแนนเต็ม - คะแนนก่อนเรียน)</code><br>
+                        เกณฑ์: &lt;0.3 (ระดับต่ำ), 0.3-0.7 (ระดับปานกลาง), &gt;0.7 (ระดับสูง)</p>
+                    </li>
+                </ul>
+                </div>`,
+                q: { 
+                    text: "หากนักเรียนสอบก่อนเรียนได้ 5 คะแนน และหลังเรียนได้ 8 คะแนน (จากคะแนนเต็ม 10) ค่า Normalized Gain จะเป็นเท่าใด?", 
+                    options: ["A. 0.3", "B. 0.5", "C. 0.6", "D. 0.8"], 
+                    ans: 2, 
+                    exp: "วิธีคิด: Gain = (8 - 5) / (10 - 5) = 3 / 5 = 0.6" 
+                }
+            }
+        ];
+
+        const exams = {
+            A: [
+                { q: "1. แนวคิด Augmented Reality ตามหลักการของ Azuma (1997) ข้อใดกล่าวถูกต้องที่สุด?", opts: ["ซ้อนทับข้อมูลดิจิทัลลงบนโลกจริงแบบเรียลไทม์", "ตัดขาดผู้ใช้เข้าสู่โลกจำลองทั้งหมด", "เป็นการแสดงผล 2 มิติผ่านหน้าจอเท่านั้น", "ไม่สามารถโต้ตอบกับวัตถุเสมือนได้"], ans: 0, unit: 1, exp: "Azuma เน้นการซ้อนทับข้อมูลเสมือนบนโลกจริง ผสาน 3D และโต้ตอบเรียลไทม์" },
+                { q: "2. บริเวณตรงกลางระหว่าง Real Environment กับ Virtual Environment ใน Reality-Virtuality Continuum เรียกว่าอะไร?", opts: ["Augmented Virtuality", "Mixed Reality (MR)", "Simulated Reality", "Extended Reality"], ans: 1, unit: 1, exp: "Milgram & Kishino นิยามพื่นที่ตรงกลางทั้งหมดว่า Mixed Reality" },
+                { q: "3. ข้อจำกัดสำคัญของการใช้ Markerless AR คืออะไร?", opts: ["ต้องพกพากระดาษสัญลักษณ์ตลอดเวลา", "ใช้แบตเตอรี่และพลังประมวลผลเครื่องสูง", "ไม่สามารถใช้งานผ่านมือถือได้", "ต้องใช้โปรเจกเตอร์ฉายภาพเสมอ"], ans: 1, unit: 2, exp: "การตรวจจับระนาบ (Plane detection) กินทรัพยากรเครื่องค่อนข้างมาก" },
+                { q: "4. เทคโนโลยี AR แบบใดที่เหมาะกับการให้ข้อมูลสถานที่ท่องเที่ยวตามพิกัดแผนที่?", opts: ["Marker-based", "Markerless", "Location-based", "Projection-based"], ans: 2, unit: 2, exp: "Location-based ใช้ GPS และเซนเซอร์ทิศทางเพื่ออิงพิกัด" },
+                { q: "5. การลด Cognitive Load ในการออกแบบสื่อ AR คืออะไร?", opts: ["เพิ่มสีสันให้ฉูดฉาด", "ตัดข้อมูลที่ไม่เกี่ยวข้องออก", "ใส่ข้อความยาวๆ ให้อ่าน", "ใช้โมเดลความละเอียดสูงสุดเสมอ"], ans: 1, unit: 3, exp: "ลดภาระการรับรู้โดยตัดสิ่งรบกวนตาม Coherence Principle" },
+                { q: "6. ข้อใดคือทางเลือกสำรอง (Fallback) ที่ดีหากผู้เรียนมือถือไม่รองรับ AR?", opts: ["ไล่ให้ไปซื้อเครื่องใหม่", "ปรับตกทันที", "ให้ดูโมเดล 3D แบบหมุนได้บนหน้าจอแทน", "ข้ามบทเรียนนั้นไปเลย"], ans: 2, unit: 3, exp: "ต้องมีทางเข้าถึงเนื้อหาเสมอ เช่น โหมด 3D ปกติ" },
+                { q: "7. แอตทริบิวต์ใดใน <model-viewer> ที่ทำให้เกิดปุ่มเปิดโหมดความจริงเสริมบนมือถือ?", opts: ["camera-controls", "ar", "auto-rotate", "src"], ans: 1, unit: 4, exp: "การใส่แอตทริบิวต์ ar จะเรียกใช้ WebXR หรือ Scene Viewer" },
+                { q: "8. ไฟล์ 3 มิติฟอร์แมตใดที่ <model-viewer> รองรับเป็นหลักมาตรฐาน?", opts: [".fbx", ".obj", ".glb", ".stl"], ans: 2, unit: 4, exp: ".glb (GLTF Binary) เป็นมาตรฐานหลักสำหรับ WebAR" },
+                { q: "9. ค่า IOC ของ Rovinelli & Hambleton (1977) ใช้ประเมินเรื่องใด?", opts: ["ประสิทธิภาพ E1/E2", "ความพึงพอใจ", "ความสอดคล้องเชิงเนื้อหาโดยผู้เชี่ยวชาญ", "ประสิทธิผล Normalized Gain"], ans: 2, unit: 5, exp: "IOC ใช้หาความเที่ยงตรงเชิงเนื้อหาผ่านผู้เชี่ยวชาญ" },
+                { q: "10. ค่า Normalized Gain ของ Hake (1998) คำนวณเพื่อหาอะไร?", opts: ["เวลาที่ใช้เรียน", "ความก้าวหน้าทางการเรียนเมื่อเทียบกับส่วนที่ยังขาด", "ความสวยงามของสื่อ", "ความคงทนของแอปพลิเคชัน"], ans: 1, unit: 5, exp: "วัดสัดส่วนคะแนนที่เพิ่มขึ้นเทียบกับคะแนนที่สามารถเพิ่มได้สูงสุด" }
+            ],
+            B: [
+                { q: "1. ตามกรอบของ Azuma (1997) สิ่งใดไม่ใช่คุณสมบัติบังคับของ AR?", opts: ["ผสมของจริงกับของเสมือน", "ตอบสนองเรียลไทม์", "แสดงตำแหน่งใน 3 มิติ", "ต้องสวมแว่นตา HMD เท่านั้น"], ans: 3, unit: 1, exp: "Azuma ไม่ได้จำกัดชนิดอุปกรณ์ เพียงแต่ต้องครบ 3 องค์ประกอบ" },
+                { q: "2. แนวคิดใดของ Milgram & Kishino ที่อธิบายแถบสเปกตรัมจากโลกจริงไปสู่โลกเสมือน?", opts: ["Cognitive Theory", "Reality-Virtuality Continuum", "Spatial Contiguity", "Normalized Gain"], ans: 1, unit: 1, exp: "Reality-Virtuality Continuum คือแกนสเปกตรัมที่ใช้อธิบาย" },
+                { q: "3. AR ที่ใช้แผ่นภาพในการสร้างแกนอ้างอิง 3D เรียกว่าอะไร?", opts: ["Location-based", "Marker-based", "Markerless", "Projection-based"], ans: 1, unit: 2, exp: "Marker-based ต้องใช้ภาพ (Marker) ในการรู้จำ" },
+                { q: "4. ข้อกังวลสำคัญที่สุดในการใช้ WebAR ในห้องเรียนคืออะไร?", opts: ["การละเมิดลิขสิทธิ์เนื้อหา", "ความเป็นส่วนตัวจากการขอสิทธิ์เปิดกล้อง", "การเปลืองกระดาษพรินต์", "เบราว์เซอร์แสดงผลสีผิดเพี้ยน"], ans: 1, unit: 2, exp: "WebAR ต้องขอสิทธิ์เข้าถึงกล้อง ซึ่งเกี่ยวข้องกับ Privacy" },
+                { q: "5. หลักการ Spatial Contiguity ของ Mayer นำมาใช้ใน AR อย่างไร?", opts: ["วางคำอธิบายให้ใกล้กับชิ้นส่วนโมเดล 3D ที่เกี่ยวข้อง", "ใช้เสียงบรรยายแทนตัวหนังสือทั้งหมด", "ตัดภาพพื้นหลังทิ้ง", "เพิ่มเกมเข้าไปในบทเรียน"], ans: 0, unit: 3, exp: "จัดวางข้อความใกล้กับภาพที่สัมพันธ์กันลดภาระสายตา" },
+                { q: "6. สิ่งแรกที่ควรทำในการออกแบบสื่อ AR เพื่อการเรียนรู้คืออะไร?", opts: ["ซื้อโมเดล 3D ที่แพงที่สุด", "เขียนโค้ดเขียนแอปพลิเคชัน", "กำหนดวัตถุประสงค์เชิงพฤติกรรมให้ชัดเจน", "เลือกสีปุ่ม UI"], ans: 2, unit: 3, exp: "เทคโนโลยีเป็นเครื่องมือ ต้องเริ่มจากวัตถุประสงค์เสมอ" },
+                { q: "7. หากต้องการให้ผู้ใช้หมุนและซูมโมเดลบนเว็บได้ ต้องใส่แอตทริบิวต์ใดใน <model-viewer>?", opts: ["ar-modes", "camera-controls", "src", "ios-src"], ans: 1, unit: 4, exp: "camera-controls เปิดการสัมผัสเพื่อหมุน/ซูมโมเดล" },
+                { q: "8. <model-viewer> พัฒนาโดยอาศัยเทคโนโลยีฝั่งเบราว์เซอร์มาตรฐานใดสำหรับ AR?", opts: ["Flash Player", "Java Applet", "WebXR", "Silverlight"], ans: 2, unit: 4, exp: "WebXR Device API เป็นมาตรฐานใหม่สำหรับ AR/VR บนเว็บ" },
+                { q: "9. เกณฑ์การยอมรับค่า IOC ต่ำสุดตามที่กำหนดโดย Rovinelli & Hambleton คือเท่าใด?", opts: ["0.00", "0.50", "0.80", "1.00"], ans: 1, unit: 5, exp: "ค่า IOC ที่ยอมรับได้ต้องมากกว่าหรือเท่ากับ 0.50" },
+                { q: "10. สูตรการหา Normalized Gain ของ Hake คือข้อใด?", opts: ["(หลัง-ก่อน)/(ก่อน)", "(หลัง-ก่อน)/(เต็ม-ก่อน)", "(หลัง)/(เต็ม) * 100", "(เต็ม-หลัง)/(ก่อน)"], ans: 1, unit: 5, exp: "สูตรคือ (Post - Pre) / (Full - Pre)" }
+            ]
+        };
+
+        const escapeHtml = (unsafe) => {
+            if(!unsafe) return '';
+            return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        };
+
+        const showEl = (id) => document.getElementById(id).classList.remove('hidden-el');
+        const hideEl = (id) => document.getElementById(id).classList.add('hidden-el');
+        
+        supabase.auth.onAuthStateChange(async (event, session) => {
+            if (session) {
+                currentUser = session.user;
+                checkUserRole();
+            } else {
+                currentUser = null;
+                showAuth();
+            }
+        });
+
+        async function checkUserRole() {
+            // Check Teacher
+            const { data: tData } = await supabase.from('teachers').select('*').eq('user_id', currentUser.id).single();
+            if (tData) {
+                isTeacherUser = true;
+                loadTeacherDashboard();
+                return;
+            }
+            // Check Student
+            const { data: sData } = await supabase.from('students').select('*').eq('user_id', currentUser.id).single();
+            if (sData) {
+                userData = sData;
+                isTeacherUser = false;
+                assignedExamSet = (parseInt(userData.id.slice(-1)) % 2 === 0) ? 'A' : 'B';
+                loadStudentDashboard();
+            } else {
+                customAlert('ข้อผิดพลาด', 'บัญชีนี้ไม่มีสิทธิ์เข้าถึงระบบ (ผูกรหัสไม่สำเร็จ)');
+                logout();
+            }
+        }
+
+        async function handleAuth(action) {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const msg = document.getElementById('authMsg');
+            msg.className = 'text-center text-sm font-medium h-4 mt-2 transition-colors text-blue-500';
+            msg.innerText = 'กำลังประมวลผล...';
+
+            if (action === 'login') {
+                const { error } = await supabase.auth.signInWithPassword({ email, password });
+                if (error) {
+                    msg.className = 'text-center text-sm font-medium h-4 mt-2 transition-colors text-red-500';
+                    msg.innerText = "เข้าสู่ระบบล้มเหลว: " + error.message;
+                }
+            } else {
+                const { error } = await supabase.auth.signUp({ email, password });
+                if (error) {
+                    msg.className = 'text-center text-sm font-medium h-4 mt-2 transition-colors text-red-500';
+                    msg.innerText = "ลงทะเบียนล้มเหลว: " + error.message;
+                } else {
+                    msg.className = 'text-center text-sm font-medium h-4 mt-2 transition-colors text-emerald-600';
+                    msg.innerText = "ลงทะเบียนสำเร็จ กรุณาเข้าสู่ระบบ";
+                    showToast('ลงทะเบียนสำเร็จ', 'success');
+                }
+            }
+        }
+
+        async function logout() {
+            await supabase.auth.signOut();
+            window.location.reload();
+        }
+
+        function showAuth() {
+            hideEl('dashboardSection'); hideEl('unitSection'); hideEl('examSection'); hideEl('resultSection'); hideEl('teacherDashboard');
+            hideEl('navMenu');
+            showEl('authSection');
+        }
+
+        async function loadStudentDashboard() {
+            hideEl('authSection'); hideEl('unitSection'); hideEl('examSection'); hideEl('resultSection');
+            showEl('dashboardSection'); showEl('navMenu');
+            
+            document.getElementById('navName').innerText = `${userData.first_name} ${userData.last_name}`;
+            document.getElementById('studentName').innerText = escapeHtml(userData.first_name);
+
+            if(userData.photo_path) {
+                const { data } = supabase.storage.from('photos').getPublicUrl(userData.photo_path);
+                document.getElementById('profileImg').src = data.publicUrl;
+            }
+
+            const { data: prog } = await supabase.from('progress').select('unit').eq('user_id', currentUser.id);
+            userProgress = prog ? prog.map(p => p.unit) : [];
+            document.getElementById('progressText').innerText = `${userProgress.length}/5 หน่วย`;
+
+            const { data: att } = await supabase.from('attempts').select('kind').eq('user_id', currentUser.id);
+            const hasPre = att.some(a => a.kind === 'pre');
+            const hasPost = att.some(a => a.kind === 'post');
+
+            renderLearningPath(hasPre, hasPost);
+            loadMaterialsForStudent();
+            loadSubmissionStatus();
+
+            if(hasPost) renderResults();
+        }
+
+        function renderLearningPath(hasPre, hasPost) {
+            const list = document.getElementById('learningPath');
+            list.innerHTML = '';
+            
+            // Pre-test
+            const preBtn = hasPre ? `<span class="text-accent bg-emerald-50 px-3 py-1 rounded-full text-xs font-bold"><i class="fa-solid fa-check mr-1"></i> ทำแล้ว</span>` : `<button onclick="startExam('pre')" class="btn btn-primary !text-xs !py-1.5 !px-3 !rounded-full shadow-sm"><i class="fa-solid fa-play mr-1"></i> เริ่มทำ</button>`;
+            list.innerHTML += `<li class="flex justify-between items-center p-3 border-b border-slate-50 hover:bg-slate-50 rounded-xl transition-colors"><div class="flex items-center gap-3"><div class="w-6 h-6 rounded-full ${hasPre?'bg-accent text-white':'bg-slate-200 text-slate-400'} flex items-center justify-center text-xs font-bold"><i class="fa-solid fa-flag-checkered"></i></div><span class="${hasPre?'text-slate-600':'font-bold text-secondary'}">ทดสอบก่อนเรียน</span></div> ${preBtn}</li>`;
+
+            // Units
+            let canDoNext = hasPre;
+            unitsData.forEach(u => {
+                const isDone = userProgress.includes(u.id);
+                let btn = '';
+                let statusIcon = '';
+                
+                if(isDone) {
+                    btn = `<button onclick="loadUnit(${u.id})" class="text-primary hover:text-primaryHover text-sm font-semibold px-2">ทบทวน</button>`;
+                    statusIcon = `<div class="w-6 h-6 rounded-full bg-accent text-white flex items-center justify-center text-xs font-bold"><i class="fa-solid fa-check"></i></div>`;
+                    canDoNext = true;
+                } else if(canDoNext) {
+                    btn = `<button onclick="loadUnit(${u.id})" class="btn btn-secondary !text-xs !py-1.5 !px-3 !rounded-full"><i class="fa-solid fa-book-open mr-1"></i> เข้าเรียน</button>`;
+                    statusIcon = `<div class="w-6 h-6 rounded-full bg-blue-100 text-primary flex items-center justify-center text-xs font-bold">${u.id}</div>`;
+                    canDoNext = false;
+                } else {
+                    btn = `<span class="text-slate-400 text-xs font-medium"><i class="fa-solid fa-lock mr-1"></i> รอปลดล็อก</span>`;
+                    statusIcon = `<div class="w-6 h-6 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center text-xs font-bold">${u.id}</div>`;
+                }
+                
+                list.innerHTML += `<li class="flex justify-between items-center p-3 border-b border-slate-50 hover:bg-slate-50 rounded-xl transition-colors ${canDoNext?'':'opacity-60'}"><div class="flex items-center gap-3">${statusIcon}<span class="${isDone?'text-slate-600':(canDoNext?'font-bold text-secondary':'text-slate-500')} truncate max-w-[200px] md:max-w-md">หน่วยที่ ${u.id}: ${u.title}</span></div> ${btn}</li>`;
+            });
+
+            // Post-test
+            const allUnitsDone = userProgress.length === 5;
+            let postBtn = '';
+            let postIcon = '';
+            if(hasPost) {
+                postBtn = `<button onclick="renderResults()" class="btn btn-success !text-xs !py-1.5 !px-3 !rounded-full shadow-sm"><i class="fa-solid fa-chart-bar mr-1"></i> ดูผลลัพธ์</button>`;
+                postIcon = `<div class="w-6 h-6 rounded-full bg-accent text-white flex items-center justify-center text-xs font-bold"><i class="fa-solid fa-trophy"></i></div>`;
+            } else if (allUnitsDone) {
+                postBtn = `<button onclick="startExam('post')" class="btn btn-primary !text-xs !py-1.5 !px-3 !rounded-full shadow-sm"><i class="fa-solid fa-play mr-1"></i> เริ่มทำ</button>`;
+                postIcon = `<div class="w-6 h-6 rounded-full bg-blue-100 text-primary flex items-center justify-center text-xs font-bold"><i class="fa-solid fa-flag-checkered"></i></div>`;
+            } else {
+                postBtn = `<span class="text-slate-400 text-xs font-medium"><i class="fa-solid fa-lock mr-1"></i> เรียนให้ครบก่อน</span>`;
+                postIcon = `<div class="w-6 h-6 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center text-xs font-bold"><i class="fa-solid fa-flag-checkered"></i></div>`;
+            }
+
+            list.innerHTML += `<li class="flex justify-between items-center p-3 hover:bg-slate-50 rounded-xl transition-colors mt-1"><div class="flex items-center gap-3">${postIcon}<span class="${allUnitsDone&&!hasPost?'font-bold text-secondary':'text-slate-600'}">ทดสอบหลังเรียน</span></div> ${postBtn}</li>`;
+            
+            if(userProgress.includes(4)) showEl('submissionForm');
+        }
+
+        let currentUnitData = null;
+        function loadUnit(unitId) {
+            hideEl('dashboardSection'); showEl('unitSection');
+            currentUnitData = unitsData.find(u => u.id === unitId);
+            const box = document.getElementById('unitContentBox');
+            
+            let html = `<div class="mb-8 pb-6 border-b border-slate-100">
+                            <span class="inline-block bg-primary/10 text-primary px-3 py-1 rounded-full text-sm font-bold mb-3">หน่วยการเรียนรู้ที่ ${currentUnitData.id}</span>
+                            <h2 class="text-3xl font-extrabold text-secondary leading-tight mb-4">${currentUnitData.title}</h2>
+                            <div class="bg-indigo-50 border-l-4 border-primary p-4 rounded-r-xl">
+                                <p class="text-sm text-indigo-900"><strong class="font-bold flex items-center gap-1 mb-1"><i class="fa-solid fa-bullseye text-primary"></i> จุดประสงค์การเรียนรู้:</strong> ${currentUnitData.obj}</p>
+                            </div>
+                        </div>
+                        <div class="mb-10">${currentUnitData.content}</div>`;
+            
+            if(currentUnitData.q) {
+                html += `<div class="bg-slate-50 p-6 md:p-8 rounded-2xl border border-slate-200 mt-8 shadow-sm" id="unitQuizBox">
+                            <div class="flex items-center gap-2 mb-4">
+                                <i class="fa-solid fa-circle-question text-primary text-xl"></i>
+                                <h4 class="font-bold text-lg text-secondary">คำถามทบทวนความเข้าใจ</h4>
+                            </div>
+                            <p class="mb-5 text-slate-700 font-medium">${currentUnitData.q.text}</p>
+                            <div class="space-y-3">
+                                ${currentUnitData.q.options.map((opt, i) => 
+                                    `<button onclick="checkUnitQuiz(${i})" class="block w-full text-left p-4 bg-white border border-slate-200 rounded-xl hover:border-primary hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary/50">${opt}</button>`
+                                ).join('')}
+                            </div>
+                            <div id="quizFeedback" class="hidden-el mt-5 p-4 rounded-xl text-sm transition-all duration-300"></div>
+                        </div>`;
+            } else {
+                html += `<div class="flex justify-center mt-8"><button onclick="finishUnit()" class="btn btn-success !px-8 !py-3 !text-lg"><i class="fa-solid fa-check-circle"></i> ผ่านหน่วยการเรียนรู้นี้</button></div>`;
+            }
+            
+            box.innerHTML = html;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        async function checkUnitQuiz(ansIdx) {
+            const fb = document.getElementById('quizFeedback');
+            fb.classList.remove('hidden-el', 'bg-red-50', 'text-red-700', 'border', 'border-red-200', 'bg-emerald-50', 'text-emerald-800', 'border-emerald-200');
+            if(ansIdx === currentUnitData.q.ans) {
+                fb.classList.add('bg-emerald-50', 'text-emerald-800', 'border', 'border-emerald-200');
+                fb.innerHTML = `<div class="flex items-start gap-2"><i class="fa-solid fa-circle-check text-emerald-600 mt-0.5 text-lg"></i> <div><strong class="block mb-1">ยอดเยี่ยม! ตอบถูกต้อง</strong> ${currentUnitData.q.exp}</div></div> <div class="mt-4 flex justify-end"><button onclick="finishUnit()" class="btn btn-success shadow-sm"><i class="fa-solid fa-arrow-right"></i> ไปต่อ</button></div>`;
+            } else {
+                fb.classList.add('bg-red-50', 'text-red-700', 'border', 'border-red-200');
+                fb.innerHTML = `<div class="flex items-center gap-2"><i class="fa-solid fa-circle-xmark text-red-500 text-lg"></i> <strong>ยังไม่ถูกต้อง</strong> ลองอ่านเนื้อหาทบทวนดูอีกครั้งนะ</div>`;
+            }
+        }
+
+        async function finishUnit() {
+            if(!userProgress.includes(currentUnitData.id)) {
+                await supabase.from('progress').insert([{ user_id: currentUser.id, unit: currentUnitData.id, done: true }]);
+                userProgress.push(currentUnitData.id);
+                showToast(`สำเร็จหน่วยที่ ${currentUnitData.id}!`, 'success');
+            }
+            loadStudentDashboard();
+        }
+
+        let currentExamKind = 'pre';
+        let userAnswers = [];
+
+        function startExam(kind) {
+            currentExamKind = kind;
+            userAnswers = new Array(10).fill(null);
+            hideEl('dashboardSection'); showEl('examSection');
+            
+            const titleIcon = kind === 'pre' ? 'fa-hourglass-start' : 'fa-flag-checkered';
+            const titleText = kind === 'pre' ? `ทดสอบก่อนเรียน (ชุด ${assignedExamSet})` : `ทดสอบหลังเรียน (ชุด ${assignedExamSet})`;
+            document.getElementById('examTitle').innerHTML = `<i class="fa-solid ${titleIcon}"></i> ${titleText}`;
+            
+            const qList = exams[assignedExamSet];
+            const container = document.getElementById('examContainer');
+            container.innerHTML = qList.map((q, i) => `
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 transition-all hover:border-primary/30">
+                    <p class="font-bold text-secondary mb-4 text-lg"><span class="text-primary mr-1">ข้อ ${i+1}.</span> ${escapeHtml(q.q.substring(q.q.indexOf('.') + 2))}</p>
+                    <div class="space-y-3">
+                        ${q.opts.map((opt, j) => `
+                            <label class="flex items-start p-4 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 hover:border-primary/50 transition-colors group has-[:checked]:bg-blue-50 has-[:checked]:border-primary has-[:checked]:ring-1 has-[:checked]:ring-primary">
+                                <input type="radio" name="q${i}" value="${j}" onchange="userAnswers[${i}]=${j}" class="mt-1 mr-3 w-4 h-4 text-primary focus:ring-primary border-gray-300"> 
+                                <span class="text-slate-700 group-hover:text-secondary group-has-[:checked]:font-semibold group-has-[:checked]:text-primary">${escapeHtml(opt)}</span>
+                            </label>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        async function submitExam() {
+            if(userAnswers.includes(null)) {
+                customAlert('ข้อมูลไม่ครบถ้วน', 'กรุณาตอบคำถามให้ครบทุกข้อก่อนกดยืนยันส่งคำตอบ'); return;
+            }
+            
+            customConfirm('ยืนยันการส่งคำตอบ?', 'ตรวจสอบคำตอบดีแล้วใช่ไหม? เมื่อส่งแล้วจะไม่สามารถแก้ไขได้', async () => {
+                const qList = exams[assignedExamSet];
+                let score = 0;
+                userAnswers.forEach((ans, i) => { if(ans === qList[i].ans) score++; });
+
+                await supabase.from('attempts').insert([{ user_id: currentUser.id, kind: currentExamKind, score, answers: userAnswers }]);
+                
+                showToast(`ส่งคำตอบเรียบร้อย ได้ ${score}/10 คะแนน`, 'success');
+                loadStudentDashboard();
+            });
+        }
+
+        async function renderResults() {
+            hideEl('dashboardSection'); showEl('resultSection');
+            const { data: att } = await supabase.from('attempts').select('*').eq('user_id', currentUser.id);
+            const pre = att.find(a => a.kind === 'pre');
+            const post = att.find(a => a.kind === 'post');
+
+            if(pre) document.getElementById('resPre').innerText = pre.score;
+            if(post) document.getElementById('resPost').innerText = post.score;
+
+            if(pre && post) {
+                let gain = 0;
+                if(pre.score === 10) gain = (post.score === 10) ? 1.00 : 0.00;
+                else gain = (post.score - pre.score) / (10 - pre.score);
+                
+                let gainText = gain.toFixed(2);
+                let badgeClass = '';
+                if(gain < 0.3) { gainText += ' (ระดับต่ำ)'; badgeClass='bg-rose-100 text-rose-800'; }
+                else if(gain <= 0.7) { gainText += ' (ระดับปานกลาง)'; badgeClass='bg-amber-100 text-amber-800'; }
+                else { gainText += ' (ระดับสูง)'; badgeClass='bg-emerald-100 text-emerald-800'; }
+                
+                document.getElementById('resGain').innerHTML = `<span class="px-3 py-1 rounded-full text-sm ${badgeClass}">${gainText}</span>`;
+
+                const qList = exams[assignedExamSet];
+                document.getElementById('examReview').innerHTML = `<h3 class="font-bold text-xl text-secondary mb-4 flex items-center gap-2"><i class="fa-solid fa-list-check text-primary"></i> เฉลยข้อสอบหลังเรียน</h3>` + qList.map((q, i) => {
+                    const uAns = post.answers[i];
+                    const isCorrect = uAns === q.ans;
+                    return `
+                    <div class="mb-4 bg-slate-50 rounded-xl p-4 md:p-5 border-l-4 ${isCorrect ? 'border-emerald-500' : 'border-rose-500'}">
+                        <p class="font-bold text-secondary mb-3">${escapeHtml(q.q)}</p>
+                        <p class="text-sm font-medium mb-1">
+                            ตอบ: <span class="${isCorrect?'text-emerald-700':'text-rose-700'} line-through decoration-rose-400">${escapeHtml(q.opts[uAns])}</span> 
+                            ${isCorrect ? '<i class="fa-solid fa-check text-emerald-600 ml-1 text-lg"></i>' : '<i class="fa-solid fa-xmark text-rose-600 ml-1 text-lg"></i>'}
+                        </p>
+                        ${!isCorrect ? `<p class="text-sm font-bold text-emerald-700 mb-2 mt-1 bg-emerald-50 inline-block px-2 py-1 rounded">เฉลย: ${escapeHtml(q.opts[q.ans])}</p>` : ''}
+                        <p class="text-slate-600 text-xs mt-2 bg-white p-3 rounded border border-slate-100"><i class="fa-solid fa-lightbulb text-amber-500 mr-1"></i> <strong>คำอธิบาย:</strong> ${escapeHtml(q.exp)}</p>
+                    </div>`;
+                }).join('');
+            }
+        }
+
+        async function uploadProfilePhoto(e) {
+            const file = e.target.files[0];
+            if(!file) return;
+            if(file.size > 2 * 1024 * 1024) return customAlert('ไฟล์มีขนาดใหญ่เกินไป', 'กรุณาอัปโหลดรูปภาพที่มีขนาดไม่เกิน 2MB');
+            
+            showToast('กำลังอัปโหลดรูปภาพ...', 'info');
+            const ext = file.name.split('.').pop();
+            const filePath = `${currentUser.id}/${Date.now()}.${ext}`;
+            
+            const { error: upErr } = await supabase.storage.from('photos').upload(filePath, file);
+            if(upErr) return showToast('อัปโหลดล้มเหลว กรุณาลองใหม่', 'error');
+
+            await supabase.from('students').update({ photo_path: filePath }).eq('user_id', currentUser.id);
+            showToast('เปลี่ยนรูปโปรไฟล์สำเร็จ', 'success');
+            loadStudentDashboard();
+        }
+
+        async function submitWork() {
+            const url = document.getElementById('workUrl').value;
+            const fileInput = document.getElementById('workFile').files[0];
+            const note = document.getElementById('workNote').value;
+
+            if(!url && !fileInput) return customAlert('ข้อมูลไม่ครบ', 'กรุณาใส่ลิงก์ผลงาน หรือ แนบไฟล์ผลงาน อย่างใดอย่างหนึ่ง');
+
+            showToast('กำลังส่งงาน กรุณารอสักครู่...', 'info');
+            let dbData = { user_id: currentUser.id, unit: 4, note: note };
+            
+            if(fileInput) {
+                if(fileInput.size > 20 * 1024 * 1024) return customAlert('ไฟล์ใหญ่เกินไป', 'กรุณาแนบไฟล์ขนาดไม่เกิน 20MB');
+                const ext = fileInput.name.split('.').pop();
+                const path = `${currentUser.id}/${Date.now()}.${ext}`;
+                const { error: upErr } = await supabase.storage.from('submissions').upload(path, fileInput);
+                if(upErr) return showToast('อัปโหลดไฟล์ล้มเหลว', 'error');
+                dbData.kind = 'file';
+                dbData.storage_path = path;
+            } else if(url) {
+                if(!url.startsWith('http')) return customAlert('URL ไม่ถูกต้อง', 'ลิงก์ต้องขึ้นต้นด้วย http:// หรือ https://');
+                dbData.kind = 'link';
+                dbData.url = url;
+            }
+
+            const { error } = await supabase.from('submissions').insert([dbData]);
+            if(error) showToast('ส่งงานล้มเหลว', 'error');
+            else { 
+                showToast('ส่งงานสำเร็จเรียบร้อย', 'success'); 
+                document.getElementById('workUrl').value = '';
+                document.getElementById('workFile').value = '';
+                document.getElementById('workNote').value = '';
+                loadSubmissionStatus(); 
+            }
+        }
+
+        async function loadSubmissionStatus() {
+            const { data } = await supabase.from('submissions').select('*').eq('user_id', currentUser.id).order('created_at', {ascending: false}).limit(1);
+            const statusDiv = document.getElementById('submissionStatus');
+            if(data && data.length > 0) {
+                const s = data[0];
+                let html = `<div class="bg-blue-50 p-4 rounded-xl border border-blue-100 text-sm">
+                    <div class="flex items-center gap-2 mb-2">
+                        <i class="fa-solid fa-clock-rotate-left text-primary"></i>
+                        <span class="font-bold text-secondary">ส่งงานล่าสุดเมื่อ:</span> <span class="text-slate-600">${new Date(s.created_at).toLocaleString('th-TH')}</span>
+                    </div>`;
+                if(s.score !== null) html += `<div class="mt-3 pt-3 border-t border-blue-200"><p class="mb-1"><strong class="text-secondary">คะแนนที่ได้:</strong> <span class="text-lg font-bold text-accent">${s.score}</span> / 10</p><p class="bg-white p-3 rounded text-slate-700 mt-2"><strong class="text-secondary block mb-1 text-xs"><i class="fa-solid fa-comment-dots text-primary"></i> ข้อเสนอแนะจากผู้สอน:</strong> ${escapeHtml(s.teacher_comment || 'ไม่มีข้อเสนอแนะเพิ่มเติม')}</p></div>`;
+                else html += `<div class="mt-2 inline-flex items-center gap-2 bg-amber-100 text-amber-800 px-3 py-1 rounded-full font-medium text-xs"><i class="fa-solid fa-hourglass-half animate-pulse"></i> รอผู้สอนตรวจประเมิน</div>`;
+                html += `</div>`;
+                statusDiv.innerHTML = html;
+            }
+        }
+
+        async function loadMaterialsForStudent() {
+            const { data } = await supabase.from('materials').select('*').order('created_at', {ascending: false});
+            const list = document.getElementById('materialsList');
+            list.innerHTML = '';
+            if(data && data.length > 0) {
+                data.forEach(m => {
+                    let icon = 'fa-file-lines text-blue-500';
+                    if(m.kind === 'link') icon = 'fa-link text-primary';
+                    if(m.kind === 'video') icon = 'fa-circle-play text-rose-500';
+
+                    list.innerHTML += `<li class="group"><a href="#" onclick="openSecureLink('${m.kind}', '${escapeHtml(m.url)}', '${m.storage_path}')" class="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 hover:border-primary/30 hover:bg-white hover:shadow-sm transition-all group-hover:-translate-y-0.5">
+                        <div class="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm"><i class="fa-solid ${icon}"></i></div>
+                        <span class="text-slate-700 font-medium group-hover:text-primary truncate flex-grow">${escapeHtml(m.title)}</span>
+                        <i class="fa-solid fa-arrow-up-right-from-square text-xs text-slate-300 group-hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                    </a></li>`;
+                });
+            } else {
+                list.innerHTML = `<li class="text-center text-slate-400 py-4 text-sm"><i class="fa-solid fa-folder-open block mb-2 text-2xl text-slate-300"></i>ยังไม่มีสื่อเพิ่มเติม</li>`;
+            }
+        }
+
+        async function openSecureLink(kind, url, path) {
+            if(kind === 'link' || kind === 'video') window.open(url, '_blank', 'noopener');
+            else if(kind === 'file') {
+                showToast('กำลังสร้างลิงก์สำหรับดาวน์โหลด...', 'info');
+                const { data, error } = await supabase.storage.from('materials').createSignedUrl(path, 60);
+                if(data) window.open(data.signedUrl, '_blank', 'noopener');
+                else showToast('ไม่สามารถเปิดไฟล์ได้', 'error');
+            }
+        }
+
+        function showDashboard() { loadStudentDashboard(); }
+
+        async function loadTeacherDashboard() {
+            hideEl('authSection'); showEl('teacherDashboard'); showEl('navMenu');
+            document.getElementById('navName').innerText = 'ระบบผู้จัดการ (ผู้สอน)';
+            loadTeacherTable();
+            loadTeacherMaterials();
+        }
+
+        async function loadTeacherTable() {
+            const { data, error } = await supabase.from('student_results').select('*').order('id');
+            const tbody = document.getElementById('teacherTableBody');
+            tbody.innerHTML = '';
+            if(data) {
+                data.forEach(r => {
+                    const progColor = (r.units_completed === 5) ? 'text-accent' : 'text-amber-500';
+                    tbody.innerHTML += `<tr class="border-b border-slate-50 hover:bg-slate-50/80 transition-colors">
+                        <td class="p-4 font-mono text-slate-500">${escapeHtml(r.id)}</td>
+                        <td class="p-4 font-medium text-secondary flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-full bg-slate-200 overflow-hidden shrink-0 border border-slate-300">
+                                <img src="${r.photo_path ? supabase.storage.from('photos').getPublicUrl(r.photo_path).data.publicUrl : 'https://ui-avatars.com/api/?name='+r.first_name+'&background=e2e8f0&color=64748b'}" class="w-full h-full object-cover">
+                            </div>
+                            ${escapeHtml(r.first_name)} ${escapeHtml(r.last_name)}
+                        </td>
+                        <td class="p-4 text-center font-bold ${progColor}">${r.units_completed || 0}/5</td>
+                        <td class="p-4 text-center">${r.pre_score !== null ? `<span class="bg-slate-100 px-2 py-1 rounded text-slate-600">${r.pre_score}</span>` : '<span class="text-slate-300">-</span>'}</td>
+                        <td class="p-4 text-center">${r.post_score !== null ? `<span class="bg-blue-50 text-blue-700 font-bold px-2 py-1 rounded">${r.post_score}</span>` : '<span class="text-slate-300">-</span>'}</td>
+                        <td class="p-4 text-center"><button onclick="viewStudentSubmissions('${r.user_id}', '${escapeHtml(r.first_name)}')" class="btn btn-secondary !text-xs !py-1.5 !px-3 !rounded-full"><i class="fa-solid fa-magnifying-glass mr-1"></i> ตรวจงาน</button></td>
+                    </tr>`;
+                });
+            }
+        }
+
+        async function viewStudentSubmissions(uid, studentName) {
+            const { data } = await supabase.from('submissions').select('*').eq('user_id', uid).order('created_at', {ascending: false});
+            if(!data || data.length === 0) return customAlert('ยังไม่มีการส่งงาน', `นักเรียน (${studentName}) ยังไม่ได้ส่งชิ้นงานเข้าระบบ`);
+            const s = data[0]; 
+            
+            let contentUrl = '';
+            if(s.kind === 'link') contentUrl = s.url;
+            else if(s.kind === 'file') {
+                const res = await supabase.storage.from('submissions').createSignedUrl(s.storage_path, 300);
+                contentUrl = res.data.signedUrl;
+            }
+
+            // Custom UI sequence for grading
+            customPrompt(`ตรวจงาน: ${studentName}`, 
+                `<strong>ดูผลงาน:</strong> <a href="${contentUrl}" target="_blank" class="text-primary underline hover:text-primaryHover"><i class="fa-solid fa-external-link-alt"></i> คลิกเปิดดูผลงาน</a><br>
+                <strong>บันทึกจากนักเรียน:</strong> <div class="bg-slate-50 p-2 text-sm mt-1 mb-4 rounded border">${escapeHtml(s.note || '-')}</div>
+                ระบุคะแนน (0-10):`, 
+                s.score || '', 
+                'number',
+                async (scoreVal) => {
+                    if(scoreVal !== null && scoreVal !== '') {
+                        setTimeout(() => {
+                            customPrompt(`ข้อเสนอแนะ`, `พิมพ์ข้อเสนอแนะเพิ่มเติมสำหรับผลงานนี้:`, s.teacher_comment || '', 'textarea', async (commentVal) => {
+                                await supabase.from('submissions').update({ score: parseInt(scoreVal), teacher_comment: commentVal }).eq('id', s.id);
+                                showToast('บันทึกผลประเมินเรียบร้อย', 'success');
+                            });
+                        }, 400); // small delay for modal transition
+                    }
+                }
+            );
+        }
+
+        async function uploadMaterial() {
+            const title = document.getElementById('matTitle').value;
+            const kind = document.getElementById('matKind').value;
+            const url = document.getElementById('matUrl').value;
+            const fileInput = document.getElementById('matFile').files[0];
+
+            if(!title) return customAlert('ข้อมูลไม่ครบ', 'กรุณาระบุชื่อสื่อการสอน');
+            
+            let dbData = { title, kind };
+            showToast('กำลังดำเนินการ...', 'info');
+
+            if(kind === 'file') {
+                if(!fileInput) return customAlert('ข้อมูลไม่ครบ', 'กรุณาเลือกไฟล์ที่ต้องการอัปโหลด');
+                const ext = fileInput.name.split('.').pop();
+                const path = `materials_${Date.now()}.${ext}`;
+                const { error } = await supabase.storage.from('materials').upload(path, fileInput);
+                if(error) return showToast('อัปโหลดไฟล์ล้มเหลว', 'error');
+                dbData.storage_path = path;
+                dbData.file_name = fileInput.name;
+            } else {
+                if(!url.startsWith('http')) return customAlert('รูปแบบไม่ถูกต้อง', 'URL ต้องขึ้นต้นด้วย http:// หรือ https://');
+                dbData.url = url;
+            }
+
+            await supabase.from('materials').insert([dbData]);
+            document.getElementById('matTitle').value = '';
+            document.getElementById('matUrl').value = '';
+            document.getElementById('matFile').value = '';
+            showToast('เพิ่มสื่อสำเร็จ', 'success');
+            loadTeacherMaterials();
+        }
+
+        async function loadTeacherMaterials() {
+            const { data } = await supabase.from('materials').select('*').order('created_at', {ascending: false});
+            const list = document.getElementById('teacherMaterialsList');
+            list.innerHTML = '';
+            if(data && data.length > 0) {
+                data.forEach(m => {
+                    let icon = 'fa-file';
+                    if(m.kind === 'link') icon = 'fa-link';
+                    if(m.kind === 'video') icon = 'fa-youtube';
+
+                    list.innerHTML += `<li class="flex justify-between items-center text-sm border-b border-slate-100 p-3 bg-slate-50 hover:bg-white rounded-lg transition-colors group">
+                        <div class="flex items-center gap-3 overflow-hidden">
+                            <div class="text-slate-400 group-hover:text-primary w-5 text-center"><i class="fa-solid ${icon}"></i></div>
+                            <span class="font-medium text-slate-700 truncate">${escapeHtml(m.title)}</span>
+                            <span class="text-xs bg-slate-200 text-slate-500 px-2 py-0.5 rounded uppercase">${m.kind}</span>
+                        </div>
+                        <button onclick="deleteMaterial('${m.id}', '${m.storage_path}')" class="text-red-400 hover:text-red-600 hover:bg-red-50 p-2 rounded transition-colors" title="ลบสื่อนี้"><i class="fa-solid fa-trash-can"></i></button>
+                    </li>`;
+                });
+            } else {
+                 list.innerHTML = `<li class="text-center text-slate-400 py-4 text-sm">ยังไม่มีสื่อในระบบ</li>`;
+            }
+        }
+
+        async function deleteMaterial(id, path) {
+            customConfirm('ยืนยันการลบสื่อ', 'คุณแน่ใจหรือไม่ที่จะลบสื่อการสอนนี้? การกระทำนี้ไม่สามารถย้อนกลับได้', async () => {
+                if(path && path !== 'undefined' && path !== 'null') {
+                    await supabase.storage.from('materials').remove([path]);
+                }
+                await supabase.from('materials').delete().eq('id', id);
+                showToast('ลบสื่อเรียบร้อย', 'success');
+                loadTeacherMaterials();
+            });
+        }
+
+        document.getElementById('matKind').addEventListener('change', function() {
+            if(this.value === 'file') { 
+                hideEl('matUrlContainer'); 
+                showEl('matFileContainer'); 
+            } else { 
+                showEl('matUrlContainer'); 
+                hideEl('matFileContainer'); 
+            }
+        });
+
+        async function exportCSV() {
+            const { data } = await supabase.from('student_results').select('*');
+            if(!data) return;
+            
+            const BOM = "\uFEFF";
+            let csv = BOM + "รหัส,ชื่อ-สกุล,ความก้าวหน้า,ก่อนเรียน,หลังเรียน\n";
+            data.forEach(r => {
+                csv += `${r.id},${r.first_name} ${r.last_name},${r.units_completed || 0}/5,${r.pre_score !== null ? r.pre_score : ''},${r.post_score !== null ? r.post_score : ''}\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", `student_results_${new Date().toISOString().split('T')[0]}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast('ดาวน์โหลดไฟล์ CSV เรียบร้อย', 'success');
+        }
+
+    </script>
+</body>
+</html>
